@@ -5,12 +5,16 @@ var moment = require('./moment');
 // Выбирает подходящий ближайший момент начала ограбления
 module.exports.getAppropriateMoment = function (json, minDuration, workingHours) {
     var appropriateMoment = moment();
-    var obj = JSON.parse(json);
+    try {
+        var obj = JSON.parse(json);
+    } catch (exception) {
+        console.error(exception);
+    }
     var shedule = getTimeInMinutesFromStartThisWeek(obj);
     var bankDateTime = getBankDateTime(workingHours);
     var bankShedule = getTimeInMinutesFromStartThisWeek(bankDateTime);
     var mergeTime = getMergeTime(shedule);
-    var possibleTime = getPossibleTime(mergeTime, bankShedule);
+    var possibleTime = getPossibleTime(mergeTime, bankShedule, minDuration);
     fillMoment(possibleTime, appropriateMoment, workingHours);
     return appropriateMoment;
 };
@@ -45,24 +49,15 @@ function parseTime(dateTime) {
 }
 
 function getTime(dateTime) {
-    var hours = parseInt(dateTime.substr(3, 2)) * 60;
-    var minutes = parseInt(dateTime.substr(6, 2));
-    var delta = parseInt(dateTime.substr(8)) * 60;
+    var hours = parseInt(dateTime.substr(3, 2), 10) * 60;
+    var minutes = parseInt(dateTime.substr(6, 2), 10);
+    var delta = parseInt(dateTime.substr(8), 10) * 60;
     return hours + minutes - delta;
 }
 
 function getIndexOfDayInWeek(day) {
-    switch (day){
-        case 'ПН': {
-            return 0;
-        }
-        case 'ВТ': {
-            return 1;
-        }
-        case 'СР': {
-            return 2;
-        }
-    }
+    var days = { ПН: 0, ВТ: 1, СР: 2 };
+    return days[day];
 }
 
 function getMergeTime(shedule) {
@@ -100,25 +95,16 @@ function getSortedTimeLines(shedule) {
 }
 
 function getBankDateTime(workingHours) {
-    return {
-        bank: [
-            {
-                from: 'ПН ' + workingHours.from,
-                to: 'ПН ' + workingHours.to
-            },
-            {
-                from: 'ВТ ' + workingHours.from,
-                to: 'ВТ ' + workingHours.to
-            },
-            {
-                from: 'СР ' + workingHours.from,
-                to: 'СР ' + workingHours.to
-            }
-        ]
-    };
+    var days = ['ПН ', 'ВТ ', 'СР '];
+    return { bank: days.map(function (x) {
+        return {
+            from: x + workingHours.from,
+            to: x + workingHours.to
+        };
+    }) };
 }
 
-function getPossibleTime(peopleTime, bankTime) {
+function getPossibleTime(peopleTime, bankTime, minDuration) {
     var shedule = bankTime.bank;
     for (var day = 0; day < shedule.length; day++) {
         if (shedule[day].from === shedule[day].to) {
@@ -159,17 +145,18 @@ function getPossibleTime(peopleTime, bankTime) {
             }
         }
     }
-    return getFirstTime(shedule);
+    return getFirstTime(shedule, minDuration);
 }
 
-function getFirstTime(shedule) {
+function getFirstTime(shedule, minDuration) {
     shedule.sort(function (obj1, obj2) {
         return obj1.from > obj2.from;
     });
-    for (var i = 0; i < shedule.length; i++) {
-        if (shedule[i].to - shedule[i].from >= 90) {
-            return shedule[i].from;
-        }
+    shedule = shedule.filter(function (x) {
+        return x.to - x.from >= minDuration;
+    });
+    if (shedule.length > 0) {
+        return shedule[0].from;
     }
     return -1;
 }
@@ -178,10 +165,14 @@ function fillMoment(time, moment, bankTime) {
     moment.timezone = Number(bankTime.from.substr(5));
     var weekDay = Math.floor((time / 60) / 24);
     var hoursAndMins = (time / 60) - (weekDay * 24);
-    var hours = Math.floor(hoursAndMins);
-    var mins = hoursAndMins - hours;
-    if (mins < 10) {
-        mins = '0' + mins;
-    }
+    var hours = toTwoChars(Math.floor(hoursAndMins));
+    var mins = toTwoChars(hoursAndMins - hours);
     moment.date = new Date(2015, 10, weekDay + 9, hours, mins);
+}
+
+function toTwoChars(time) {
+    if (time < 10) {
+        return '0' + time;
+    }
+    return time;
 }

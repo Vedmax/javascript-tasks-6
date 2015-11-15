@@ -16,7 +16,7 @@ var robberyMoment = robbery.getAppropriateMoment(
     gang,
 
     // 90 минут
-    90,
+    30,
 
     // Рабочие часы банка
     {
