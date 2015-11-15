@@ -1,20 +1,22 @@
 'use strict';
 
 var moment = require('./moment');
+var toTwoChars = require('./toTwoChars');
 
 // Выбирает подходящий ближайший момент начала ограбления
 module.exports.getAppropriateMoment = function (json, minDuration, workingHours) {
     var appropriateMoment = moment();
     try {
         var obj = JSON.parse(json);
-    } catch (exception) {
-        console.error(exception);
+    } catch (error) {
+        console.error(error);
     }
     var shedule = getTimeInMinutesFromStartThisWeek(obj);
     var bankDateTime = getBankDateTime(workingHours);
     var bankShedule = getTimeInMinutesFromStartThisWeek(bankDateTime);
     var mergeTime = getMergeTime(shedule);
     var possibleTime = getPossibleTime(mergeTime, bankShedule, minDuration);
+
     fillMoment(possibleTime, appropriateMoment, workingHours);
     return appropriateMoment;
 };
@@ -52,18 +54,19 @@ function getTime(dateTime) {
     var hours = parseInt(dateTime.substr(3, 2), 10) * 60;
     var minutes = parseInt(dateTime.substr(6, 2), 10);
     var delta = parseInt(dateTime.substr(8), 10) * 60;
+
     return hours + minutes - delta;
 }
 
 function getIndexOfDayInWeek(day) {
-    var days = { ПН: 0, ВТ: 1, СР: 2 };
-    return days[day];
+    return ['ПН', 'ВТ', 'СР'].indexOf(day);
 }
 
 function getMergeTime(shedule) {
     var timeLines = getSortedTimeLines(shedule);
     var prevLine = timeLines[0];
     var newLine = [prevLine];
+
     for (var i = 1; i < timeLines.length; i++) {
         if (timeLines[i].from <= prevLine.to) {
             if (prevLine.to >= timeLines[i].to) {
@@ -77,6 +80,7 @@ function getMergeTime(shedule) {
             newLine.push(prevLine);
         }
     }
+
     return newLine;
 }
 
@@ -95,8 +99,7 @@ function getSortedTimeLines(shedule) {
 }
 
 function getBankDateTime(workingHours) {
-    var days = ['ПН ', 'ВТ ', 'СР '];
-    return { bank: days.map(function (x) {
+    return { bank: ['ПН ', 'ВТ ', 'СР '].map(function (x) {
         return {
             from: x + workingHours.from,
             to: x + workingHours.to
@@ -149,16 +152,14 @@ function getPossibleTime(peopleTime, bankTime, minDuration) {
 }
 
 function getFirstTime(shedule, minDuration) {
-    shedule.sort(function (obj1, obj2) {
-        return obj1.from > obj2.from;
-    });
-    shedule = shedule.filter(function (x) {
-        return x.to - x.from >= minDuration;
-    });
-    if (shedule.length > 0) {
-        return shedule[0].from;
-    }
-    return -1;
+    shedule = shedule
+        .sort(function (obj1, obj2) {
+            return obj1.from > obj2.from;
+        })
+        .filter(function (x) {
+            return x.to - x.from >= minDuration;
+        });
+    return shedule.length ? shedule[0].from : -1;
 }
 
 function fillMoment(time, moment, bankTime) {
@@ -167,12 +168,6 @@ function fillMoment(time, moment, bankTime) {
     var hoursAndMins = (time / 60) - (weekDay * 24);
     var hours = toTwoChars(Math.floor(hoursAndMins));
     var mins = toTwoChars(hoursAndMins - hours);
-    moment.date = new Date(2015, 10, weekDay + 9, hours, mins);
-}
 
-function toTwoChars(time) {
-    if (time < 10) {
-        return '0' + time;
-    }
-    return time;
+    moment.date = new Date(2015, 10, weekDay + 9, hours, mins);
 }

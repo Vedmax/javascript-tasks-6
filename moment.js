@@ -1,5 +1,7 @@
 'use strict';
 
+var toTwoChars = require('./toTwoChars');
+
 module.exports = function () {
     return {
         // Здесь как-то хранится дата ;)
@@ -19,8 +21,8 @@ module.exports = function () {
             }
             var hours = toTwoChars(hoursWithZone);
             var minutes = toTwoChars(this.date.getMinutes());
-            pattern = replaceFormatedStrings(pattern, dayOfWeek, hours, minutes);
-            return pattern;
+
+            return replaceFormatedStrings(pattern, dayOfWeek, hours, minutes);
         },
 
         // Возвращает кол-во времени между текущей датой и переданной `moment`
@@ -32,35 +34,27 @@ module.exports = function () {
             var hours = Math.floor(delta / 60) - 24 * days;
             var minutes = delta - hours;
             var result = 'До ограбления ';
+
             result += getRemainTime(days, 'day');
             result += getRemainTime(hours, 'hour');
             result += getRemainTime(minutes, 'minute');
+
             return result;
         }
     };
 
-    function toTwoChars(time) {
-        if (time < 10) {
-            return '0' + time;
-        }
-        return time;
-    }
-
     function replaceFormatedStrings(pattern, dayOfWeek, hours, minutes) {
-        pattern = pattern.substr(0, pattern.indexOf('%DD')) + dayOfWeek +
-            pattern.substr(pattern.indexOf('%DD') + 3);
-        pattern = pattern.substr(0, pattern.indexOf('%HH')) + hours +
-            pattern.substr(pattern.indexOf('%HH') + 3);
-        pattern = pattern.substr(0, pattern.indexOf('%MM')) + minutes +
-            pattern.substr(pattern.indexOf('%MM') + 3);
-        return pattern;
+        return pattern
+            .replace('%DD', dayOfWeek)
+            .replace('%HH', hours)
+            .replace('%MM', minutes);
     }
 
     function getRemainTime(time, type) {
         if (time === 0) {
             return '';
         }
-        var words = getRightWords(type);
+        var words = getTimeUnitsString(type);
         var remain = ['остался ', 'осталось ', 'осталась '];
         if (type === 'minute') {
             remain[0] = remain[2];
@@ -68,13 +62,13 @@ module.exports = function () {
         if (time % 10 === 1) {
             return remain[0] + time + words[0];
         }
-        if ((time % 100 <= 20 && time % 100 >= 10) || time % 10 != 3 || time % 10 != 2) {
+        if ((time % 100 <= 20 && time % 100 >= 10) || time % 10 !== 3 || time % 10 !== 2) {
             return remain[1] + time + words[1];
         }
         return remain[1] + time + words[2];
     }
 
-    function getRightWords(type) {
+    function getTimeUnitsString(type) {
         var daysWords = ['день ', 'дней ', 'дня '];
         var hoursWords = ['час ', 'часов ', 'часа '];
         var minutesWords = ['минута ', 'минут ', 'минуты '];
@@ -82,8 +76,7 @@ module.exports = function () {
             return daysWords;
         } else if (type === 'hour') {
             return hoursWords;
-        } else {
-            return minutesWords;
         }
+        return minutesWords;
     }
 };
